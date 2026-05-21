@@ -710,11 +710,11 @@ export default function Home() {
                         >
 
                           <p className="font-bold text-red-800">
-                            {reservation.user_name}
+                            {reservation.subject}
                           </p>
 
                           <p className="text-sm">
-                            {reservation.subject}
+                            {reservation.user_name}
                           </p>
 
                         </div>
