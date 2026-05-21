@@ -63,6 +63,24 @@ export default function Home() {
     setSelectedReservation] =
     useState<any>(null)
 
+  // 예약 이동
+  const [draggingReservation,
+    setDraggingReservation] =
+    useState<any>(null)
+
+  const [moveModal, setMoveModal] =
+    useState(false)
+
+  const [moveName, setMoveName] =
+    useState('')
+
+  const [movePassword, setMovePassword] =
+    useState('')
+
+  const [moveTargetPeriod,
+    setMoveTargetPeriod] =
+    useState('')
+
   // 관리자 삭제
   const [adminModal, setAdminModal] =
     useState(false)
@@ -320,65 +338,272 @@ export default function Home() {
 
   async function confirmDelete() {
 
-  if (!selectedReservation) return
+    if (!selectedReservation) return
 
-  // 관리자 검사
-  const isAdmin =
-    await checkAdmin(
-      deleteName,
-      deletePassword
-    )
+    // 관리자 검사
+    const isAdmin =
+      await checkAdmin(
+        deleteName,
+        deletePassword
+      )
 
-  // 사용자 검사
-  const hashedPassword =
-    SHA256(deletePassword).toString()
+    // 사용자 검사
+    const hashedPassword =
+      SHA256(deletePassword).toString()
 
-  const { data } = await supabase
-    .from('reservations')
-    .select('*')
-    .eq('id', selectedReservation.id)
-    .maybeSingle()
+    const { data } = await supabase
+      .from('reservations')
+      .select('*')
+      .eq('id', selectedReservation.id)
+      .maybeSingle()
 
-  if (!data) {
+    if (!data) {
 
-    alert(
-      '예약 정보를 찾을 수 없습니다.'
-    )
+      alert(
+        '예약 정보를 찾을 수 없습니다.'
+      )
 
-    return
+      return
+    }
+
+    const isOwner =
+      data.user_name === deleteName &&
+      data.password === hashedPassword
+
+    if (!isAdmin && !isOwner) {
+
+      alert(
+        '정보가 올바르지 않습니다.'
+      )
+
+      return
+    }
+
+    const { error } = await supabase
+      .from('reservations')
+      .delete()
+      .eq('id', selectedReservation.id)
+
+    if (error) {
+
+      alert('삭제 실패')
+
+      return
+    }
+
+    alert('삭제 완료')
+
+    setDeleteModal(false)
+
+    fetchReservations()
   }
 
-  const isOwner =
-    data.user_name === deleteName &&
-    data.password === hashedPassword
+  function handleDragStart(
+    reservation: any
+  ) {
 
-  if (!isAdmin && !isOwner) {
-
-    alert(
-      '정보가 올바르지 않습니다.'
+    setDraggingReservation(
+      reservation
     )
-
-    return
   }
 
-  const { error } = await supabase
-    .from('reservations')
-    .delete()
-    .eq('id', selectedReservation.id)
+  function handleDragOver(
+    e: React.DragEvent
+  ) {
 
-  if (error) {
-
-    alert('삭제 실패')
-
-    return
+    e.preventDefault()
   }
 
-  alert('삭제 완료')
+  function handleDrop(
+    targetPeriod: string
+  ) {
 
-  setDeleteModal(false)
+    if (!draggingReservation) return
 
-  fetchReservations()
-}
+    if (
+      draggingReservation.start_time ===
+      targetPeriod
+    ) {
+
+      setDraggingReservation(null)
+
+      return
+    }
+
+    const lessonExists =
+      timetable.find(
+        (item) =>
+          item.space_name === viewSpace &&
+          item.lesson_date === date &&
+          item.period === targetPeriod
+      )
+
+    if (lessonExists) {
+
+      alert(
+        '정규수업 시간으로는 이동할 수 없습니다.'
+      )
+
+      setDraggingReservation(null)
+
+      return
+    }
+
+    const reservationExists =
+      reservations.find(
+        (item) =>
+          item.space_name === viewSpace &&
+          item.reservation_date === date &&
+          item.start_time === targetPeriod &&
+          item.id !== draggingReservation.id
+      )
+
+    if (reservationExists) {
+
+      alert(
+        '이미 예약된 시간으로는 이동할 수 없습니다.'
+      )
+
+      setDraggingReservation(null)
+
+      return
+    }
+
+    setMoveTargetPeriod(targetPeriod)
+
+    setMoveName('')
+    setMovePassword('')
+
+    setMoveModal(true)
+  }
+
+  async function confirmMoveReservation() {
+
+    if (
+      !draggingReservation ||
+      !moveTargetPeriod
+    ) return
+
+    if (
+      !moveName ||
+      !movePassword
+    ) {
+
+      alert('이름과 비밀번호를 입력하세요.')
+
+      return
+    }
+
+    const isAdmin =
+      await checkAdmin(
+        moveName,
+        movePassword
+      )
+
+    const hashedPassword =
+      SHA256(movePassword).toString()
+
+    const { data } = await supabase
+      .from('reservations')
+      .select('*')
+      .eq('id', draggingReservation.id)
+      .maybeSingle()
+
+    if (!data) {
+
+      alert(
+        '예약 정보를 찾을 수 없습니다.'
+      )
+
+      return
+    }
+
+    const isOwner =
+      data.user_name === moveName &&
+      data.password === hashedPassword
+
+    if (!isAdmin && !isOwner) {
+
+      alert(
+        '정보가 올바르지 않습니다.'
+      )
+
+      return
+    }
+
+    const lessonExists =
+      timetable.find(
+        (item) =>
+          item.space_name === viewSpace &&
+          item.lesson_date === date &&
+          item.period === moveTargetPeriod
+      )
+
+    if (lessonExists) {
+
+      alert(
+        '정규수업 시간으로는 이동할 수 없습니다.'
+      )
+
+      return
+    }
+
+    const reservationExists =
+      reservations.find(
+        (item) =>
+          item.space_name === viewSpace &&
+          item.reservation_date === date &&
+          item.start_time === moveTargetPeriod &&
+          item.id !== draggingReservation.id
+      )
+
+    if (reservationExists) {
+
+      alert(
+        '이미 예약된 시간으로는 이동할 수 없습니다.'
+      )
+
+      return
+    }
+
+    const { error } = await supabase
+      .from('reservations')
+      .update({
+        start_time: moveTargetPeriod,
+        end_time: moveTargetPeriod,
+      })
+      .eq('id', draggingReservation.id)
+
+    if (error) {
+
+      alert('예약 이동 실패')
+
+      return
+    }
+
+    alert('예약 시간이 수정되었습니다.')
+
+    setMoveModal(false)
+
+    setDraggingReservation(null)
+
+    setMoveName('')
+    setMovePassword('')
+    setMoveTargetPeriod('')
+
+    fetchReservations()
+  }
+
+  function cancelMoveReservation() {
+
+    setMoveModal(false)
+
+    setDraggingReservation(null)
+
+    setMoveName('')
+    setMovePassword('')
+    setMoveTargetPeriod('')
+  }
 
   function deleteTimetable(
     period: string
@@ -625,15 +850,17 @@ export default function Home() {
 
           </div>
 
-          <h2 className="text-2xl font-bold mb-4">
-            {viewSpace} 시간표 현황
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold">
+              {viewSpace} 시간표 현황 [ {date} ] 
+            </h2>
 
-          <p className="mb-4 text-gray-500">
-            {date}
-          </p>
+            <p className="text-xl font-semibold text-gray-500 text-right">
+              클릭 시 예약 삭제 · 드래그로 시간 이동
+            </p>
+          </div>
 
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse text-lg">
 
             <thead>
 
@@ -698,15 +925,28 @@ export default function Home() {
 
                     </td>
 
-                    <td className="border p-3">
+                    <td
+                      className="border p-3"
+                      onDragOver={handleDragOver}
+                      onDrop={() =>
+                        handleDrop(period)
+                      }
+                    >
 
                       {reservation ? (
 
                         <div
+                          draggable
+                          onDragStart={() =>
+                            handleDragStart(
+                              reservation
+                            )
+                          }
                           onClick={() =>
                             openDeleteModal(period)
                           }
-                          className="bg-red-200 p-3 rounded-xl text-center cursor-pointer hover:bg-red-300"
+                          className="bg-red-200 p-3 rounded-xl text-center cursor-move hover:bg-red-300"
+                          title="드래그해서 다른 빈 교시로 이동할 수 있습니다."
                         >
 
                           <p className="font-bold text-red-800">
@@ -716,6 +956,8 @@ export default function Home() {
                           <p className="text-sm">
                             {reservation.user_name}
                           </p>
+
+                        
 
                         </div>
 
@@ -736,6 +978,7 @@ export default function Home() {
                           <p className="font-bold text-green-700">
                             예약 가능
                           </p>
+
 
                         </div>
 
@@ -820,6 +1063,79 @@ export default function Home() {
 
       )}
 
+      {/* 예약 이동 */}
+
+      {moveModal && (
+
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+          <div className="bg-white p-6 rounded-2xl w-80 shadow-xl">
+
+            <h2 className="text-2xl font-bold mb-4 text-center">
+              예약 시간 이동
+            </h2>
+
+            <p className="mb-5 text-center text-2xl font-bold text-blue-600">
+              {draggingReservation?.start_time}
+              {' → '}
+              {moveTargetPeriod}
+            </p>
+
+            <div className="space-y-4">
+
+              <input
+                className="w-full border p-3 rounded-xl"
+                placeholder="이름"
+                value={moveName}
+                onChange={(e) =>
+                  setMoveName(e.target.value)
+                }
+              />
+
+              <input
+                type="password"
+                className="w-full border p-3 rounded-xl"
+                placeholder="비밀번호"
+                value={movePassword}
+                onChange={(e) =>
+                  setMovePassword(
+                    e.target.value
+                  )
+                }
+              />
+
+              <div className="flex gap-2">
+
+                <button
+                  type="button"
+                  onClick={
+                    confirmMoveReservation
+                  }
+                  className="flex-1 bg-blue-500 text-white p-3 rounded-xl"
+                >
+                  이동
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    cancelMoveReservation
+                  }
+                  className="flex-1 bg-gray-300 p-3 rounded-xl"
+                >
+                  취소
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
       {/* 관리자 삭제 */}
 
       {adminModal && (
@@ -887,18 +1203,15 @@ export default function Home() {
 
       )}
 
-      <footer className="mt-16 text-center text-gray-500 text-sm">
-
-        <p>
+      <footer className="mt-16 text-center text-gray-500 text-lg font-normal">
+        <p className="mt-1 text-lg">
           운영자 : NTonE Computer Science Teacher
         </p>
 
-        <p className="mt-1">
+        <p className="mt-1 text-lg">
           © 창원과학고등학교 ALL RIGHTS RESERVED.
         </p>
-
       </footer>
-
     </main>
   )
 }
