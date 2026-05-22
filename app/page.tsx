@@ -34,7 +34,7 @@ export default function Home() {
     useState('')
 
   const [viewSpace, setViewSpace] =
-    useState('컴퓨터실')
+    useState('컴퓨터실(3층)')
 
   const today = new Date()
     .toISOString()
