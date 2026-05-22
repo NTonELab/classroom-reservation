@@ -320,7 +320,13 @@ export default function Home() {
         item.start_time === period
     )
   }
-
+  function selectAvailablePeriod(period: string) {
+    setSelectedSpace(viewSpace)
+    setDate(date)
+    setStartTime(period)
+    setEndTime(period)
+    setIsEndTimeEdited(false)
+  }
   function openDeleteModal(period: string) {
 
     const reservation =
@@ -973,8 +979,12 @@ export default function Home() {
 
                       ) : (
 
-                        <div className="bg-green-100 p-3 rounded-xl text-center">
-
+                        <div
+                          onClick={() =>
+                            selectAvailablePeriod(period)
+                          }
+                          className="bg-green-100 p-3 rounded-xl text-center cursor-pointer hover:bg-green-200"
+                        >
                           <p className="font-bold text-green-700">
                             예약 가능
                           </p>
