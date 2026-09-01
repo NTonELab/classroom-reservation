@@ -291,8 +291,8 @@ export default function Home() {
 
     fetchReservations()
 
-    setName('')
-    setSubject('')
+    //setName('')
+    //setSubject('')
     setPassword('')
 
     setStartTime('')
